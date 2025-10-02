@@ -1,0 +1,7 @@
+{
+  "name": "GetApp",
+  "description": "A platform to connect service providers and clients, featuring real-time status updates, service discovery, and community reviews.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
