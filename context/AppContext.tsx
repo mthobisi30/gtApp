@@ -11,6 +11,7 @@ import {
     updateTransaction as updateTransactionAPI,
     addCommentToPost,
     addReviewToPost,
+    requestDeliveryForTransaction,
 } from '../services/geminiService';
 
 
@@ -37,11 +38,13 @@ interface AppContextValue extends AppContextState {
     openModal: (content: ReactNode | null) => void;
     addService: (service: Omit<ServicePost, 'id' | 'provider' | 'reviews' | 'comments' | 'avgRating'>) => Promise<void>;
     updateService: (serviceId: string, serviceData: Omit<ServicePost, 'id' | 'provider' | 'reviews' | 'comments' | 'avgRating'>) => Promise<void>;
-    addJob: (job: Omit<Transaction, 'id' | 'provider' | 'qrCodeId'>) => Promise<void>;
-    updateJob: (jobId: string, jobData: Omit<Transaction, 'id' | 'provider' | 'client' | 'qrCodeId'>) => Promise<void>;
+    addJob: (job: Omit<Transaction, 'id' | 'provider' | 'qrCodeId' | 'readyTimestamp' | 'deliveryRequested'>) => Promise<void>;
+    updateJob: (jobId: string, jobData: Partial<Omit<Transaction, 'id' | 'provider' | 'client' | 'qrCodeId'>>) => Promise<void>;
     addComment: (postId: string, text: string) => void;
     addReview: (postId: string, rating: number, comment: string) => void;
     setActiveChatPartner: (user: User | null) => void;
+    requestDelivery: (jobId: string, address: string, phoneNumber: string) => Promise<void>;
+    toggleActiveRole: () => void;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -122,7 +125,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setToast({ message: 'Service updated!', type: 'success' });
     }
 
-    const addJob = async (jobData: Omit<Transaction, 'id' | 'provider' | 'qrCodeId'>) => {
+    const addJob = async (jobData: Omit<Transaction, 'id' | 'provider' | 'qrCodeId' | 'readyTimestamp' | 'deliveryRequested'>) => {
         if (!currentUser) return;
         const newJob = await addTransactionAPI(currentUser, jobData);
         setTransactions(prev => [newJob, ...prev]);
@@ -130,11 +133,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setToast({ message: 'Job created successfully!', type: 'success' });
     }
 
-    const updateJob = async (jobId: string, jobData: Omit<Transaction, 'id' | 'provider' | 'client' | 'qrCodeId'>) => {
+    const updateJob = async (jobId: string, jobData: Partial<Omit<Transaction, 'id' | 'provider' | 'client' | 'qrCodeId'>>) => {
+        const originalJob = transactions.find(j => j.id === jobId);
         const updatedJob = await updateTransactionAPI(jobId, jobData);
         setTransactions(prev => prev.map(j => j.id === jobId ? updatedJob : j));
         openModal(null);
-        if (updatedJob.status === 'Ready for Pickup') {
+        
+        if (updatedJob.status === 'Ready for Pickup' && originalJob?.status !== 'Ready for Pickup') {
             setToast({ message: `Client notified: "${updatedJob.serviceName}" is ready.`, type: 'info' });
         } else if (updatedJob.status === 'Completed') {
             setToast({ message: `Job "${updatedJob.serviceName}" marked as completed!`, type: 'success' });
@@ -157,6 +162,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setToast({ message: 'Review submitted!', type: 'success' });
     }
 
+    const requestDelivery = async (jobId: string, address: string, phoneNumber: string) => {
+        const updatedJob = await requestDeliveryForTransaction(jobId, address, phoneNumber);
+        setTransactions(prev => prev.map(j => j.id === jobId ? updatedJob : j));
+        openModal(null);
+        setToast({ message: 'Delivery requested! The provider has been notified.', type: 'success' });
+    };
+
+    const toggleActiveRole = () => {
+        if (currentUser && currentUser.roles.length > 1) {
+            const newActiveRole = currentUser.activeRole === 'client' ? 'provider' : 'client';
+            setCurrentUser({ ...currentUser, activeRole: newActiveRole });
+            setToast({ message: `Switched to ${newActiveRole} view`, type: 'info' });
+        }
+    };
 
     const value: AppContextValue = {
         currentPage,
@@ -183,6 +202,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         addComment,
         addReview,
         setActiveChatPartner,
+        requestDelivery,
+        toggleActiveRole,
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

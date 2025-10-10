@@ -5,6 +5,7 @@ export enum Page {
     Transactions = 'Transactions',
     Profile = 'Profile',
     Chat = 'Chat',
+    Dashboard = 'Dashboard',
 }
 
 export type UserRole = 'client' | 'provider';
@@ -15,7 +16,8 @@ export interface User {
     name: string;
     avatarUrl: string;
     handle: string;
-    role: UserRole;
+    roles: UserRole[];
+    activeRole: UserRole;
     reputation: number; // Score out of 100
     email: string;
     password?: string;
@@ -49,13 +51,19 @@ export interface ServicePost {
 }
 
 export interface Transaction {
-    id: string;
+    id:string;
     serviceName: string;
     provider: User;
     client: User;
     date: string;
     status: TransactionStatus;
     qrCodeId: string;
+    pickupDeadline?: number; // In hours
+    readyTimestamp?: string; // ISO string
+    deliveryRequested?: boolean;
+    deliveryAddress?: string;
+    deliveryPhoneNumber?: string;
+    estimatedDeliveryTime?: string;
 }
 
 export interface ServiceCategory {

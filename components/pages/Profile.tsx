@@ -1,15 +1,37 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import { useAppContext } from '../../context/AppContext';
 import Icon from '../common/Icon';
-import MyServicesModal from '../modals/MyServicesModal';
 import MyReviewsModal from '../modals/MyReviewsModal';
 import ComingSoonModal from '../modals/ComingSoonModal';
+import { Page } from '../../types';
+
+const RoleSwitcher: React.FC = () => {
+    const { currentUser, toggleActiveRole } = useAppContext();
+
+    if (!currentUser || currentUser.roles.length < 2) {
+        return null;
+    }
+
+    return (
+        <Card>
+            <div className="flex justify-between items-center">
+                <div className="flex flex-col">
+                    <h3 className="text-lg font-bold">Viewing As</h3>
+                    <p className="text-red-600 font-semibold capitalize">{currentUser.activeRole}</p>
+                </div>
+                <Button onClick={toggleActiveRole}>
+                    Switch to {currentUser.activeRole === 'client' ? 'Provider' : 'Client'}
+                </Button>
+            </div>
+        </Card>
+    );
+};
 
 
 const Profile: React.FC = () => {
-    const { currentUser, logout, openModal } = useAppContext();
+    const { currentUser, logout, openModal, setCurrentPage } = useAppContext();
 
     if (!currentUser) {
         return <div className="text-center p-8">Loading profile...</div>;
@@ -25,7 +47,7 @@ const Profile: React.FC = () => {
                     <h2 className="text-2xl font-bold">{currentUser.name}</h2>
                     <p className="text-gray-500 dark:text-gray-400">@{currentUser.handle}</p>
                     <span className="mt-2 px-3 py-1 bg-red-100 text-red-800 text-sm font-semibold rounded-full dark:bg-red-900/50 dark:text-red-200 capitalize">
-                        {currentUser.role}
+                        {currentUser.activeRole}
                     </span>
                     <div className="mt-4 flex space-x-4">
                         <Button onClick={() => openModal(<ComingSoonModal onClose={() => openModal(null)}/>)}>Edit Profile</Button>
@@ -33,6 +55,8 @@ const Profile: React.FC = () => {
                     </div>
                 </div>
             </Card>
+            
+            <RoleSwitcher />
 
             <Card>
                 <h3 className="text-xl font-bold mb-2">Reputation</h3>
@@ -43,12 +67,14 @@ const Profile: React.FC = () => {
             </Card>
 
             <Card>
-                <h3 className="text-xl font-bold mb-4">My Dashboard</h3>
+                <h3 className="text-xl font-bold mb-4">My Activity</h3>
                 <div className="space-y-2">
-                    <button onClick={() => openModal(<MyServicesModal onClose={() => openModal(null)} />)} className="w-full text-left p-3 flex items-center space-x-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                        <Icon name="store" className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                        <span>My Services</span>
-                    </button>
+                    {currentUser.activeRole === 'provider' && (
+                        <button onClick={() => setCurrentPage(Page.Dashboard)} className="w-full text-left p-3 flex items-center space-x-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                           <Icon name="chart" className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                           <span>Analytics Dashboard</span>
+                       </button>
+                    )}
                     <button onClick={() => openModal(<MyReviewsModal onClose={() => openModal(null)} />)} className="w-full text-left p-3 flex items-center space-x-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                             <Icon name="star" className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                         <span>My Reviews</span>

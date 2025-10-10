@@ -12,6 +12,7 @@ import Signup from './components/pages/Signup';
 import Chat from './components/pages/Chat';
 import Toast from './components/common/Toast';
 import { Page } from './types';
+import Dashboard from './components/pages/Dashboard';
 
 const PageRenderer: React.FC = () => {
     const { currentPage } = useAppContext();
@@ -29,6 +30,8 @@ const PageRenderer: React.FC = () => {
             return <Profile />;
         case Page.Chat:
             return <Chat />;
+        case Page.Dashboard:
+            return <Dashboard />;
         default:
             return <Billboard />;
     }

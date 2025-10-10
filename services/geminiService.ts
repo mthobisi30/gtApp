@@ -4,10 +4,10 @@ const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 // --- MOCK USERS ---
 const mockUsers: { [key: string]: User } = {
-    '1': { id: '1', name: 'Jane Doe', email: 'client@test.com', password: 'password', avatarUrl: 'https://picsum.photos/seed/jane/100/100', handle: 'janedoe', role: 'client', reputation: 85 },
-    '2': { id: '2', name: 'John Smith', email: 'provider@test.com', password: 'password', avatarUrl: 'https://picsum.photos/seed/john/100/100', handle: 'johnsmith', role: 'provider', reputation: 92 },
-    '3': { id: '3', name: 'Alice Johnson', email: 'alice@test.com', password: 'password', avatarUrl: 'https://picsum.photos/seed/alice/100/100', handle: 'alicej', role: 'provider', reputation: 78 },
-    '4': { id: '4', name: 'Bob Brown', email: 'bob@test.com', password: 'password', avatarUrl: 'https://picsum.photos/seed/bob/100/100', handle: 'bobb', role: 'client', reputation: 65 },
+    '1': { id: '1', name: 'Jane Doe', email: 'client@test.com', password: 'password', avatarUrl: 'https://picsum.photos/seed/jane/100/100', handle: 'janedoe', roles: ['client'], activeRole: 'client', reputation: 85 },
+    '2': { id: '2', name: 'John Smith', email: 'provider@test.com', password: 'password', avatarUrl: 'https://picsum.photos/seed/john/100/100', handle: 'johnsmith', roles: ['provider', 'client'], activeRole: 'provider', reputation: 92 },
+    '3': { id: '3', name: 'Alice Johnson', email: 'alice@test.com', password: 'password', avatarUrl: 'https://picsum.photos/seed/alice/100/100', handle: 'alicej', roles: ['provider'], activeRole: 'provider', reputation: 78 },
+    '4': { id: '4', name: 'Bob Brown', email: 'bob@test.com', password: 'password', avatarUrl: 'https://picsum.photos/seed/bob/100/100', handle: 'bobb', roles: ['client'], activeRole: 'client', reputation: 65 },
 };
 
 // --- MOCK REVIEWS ---
@@ -50,9 +50,10 @@ let mockServicePosts: ServicePost[] = [
 
 // --- MOCK TRANSACTIONS ---
 let mockTransactions: Transaction[] = [
-    { id: 't1', serviceName: 'PC Repair', provider: mockUsers['2'], client: mockUsers['1'], date: '2023-10-26', status: 'Ready for Pickup', qrCodeId: 'QR123' },
+    { id: 't1', serviceName: 'PC Repair', provider: mockUsers['2'], client: mockUsers['1'], date: '2023-10-26', status: 'Ready for Pickup', qrCodeId: 'QR123', pickupDeadline: 48, readyTimestamp: new Date(Date.now() - 12 * 3600 * 1000).toISOString() },
     { id: 't2', serviceName: 'Garden Maintenance', provider: mockUsers['3'], client: mockUsers['1'], date: '2023-10-25', status: 'In Progress', qrCodeId: 'QR456' },
     { id: 't3', serviceName: 'Website Consultation', provider: mockUsers['3'], client: mockUsers['4'], date: '2023-10-22', status: 'Completed', qrCodeId: 'QR789' },
+    { id: 't4', serviceName: 'Custom Painting', provider: mockUsers['2'], client: mockUsers['4'], date: '2023-10-28', status: 'Ready for Pickup', qrCodeId: 'QR101', pickupDeadline: 2, readyTimestamp: new Date(Date.now() - 1.5 * 3600 * 1000).toISOString(), deliveryRequested: true, deliveryAddress: '123 Main St, Anytown', deliveryPhoneNumber: '555-1234', estimatedDeliveryTime: '2-3 hours' },
 ];
 
 // --- MOCK SERVICE CATEGORIES ---
@@ -137,7 +138,8 @@ export const addUser = async (data: {name: string, email: string, password: stri
         name: data.name,
         email: data.email,
         password: data.password,
-        role: data.role,
+        roles: [data.role],
+        activeRole: data.role,
         avatarUrl: `https://picsum.photos/seed/${newId}/100/100`,
         handle: data.name.toLowerCase().replace(/\s/g, ''),
         reputation: Math.floor(Math.random() * 30) + 50, // Random reputation between 50-80
@@ -197,24 +199,55 @@ export const updateServicePost = async (postId: string, data: Omit<ServicePost, 
     return mockServicePosts[postIndex];
 }
 
-export const addTransaction = async (provider: User, data: Omit<Transaction, 'id' | 'provider' | 'qrCodeId'>): Promise<Transaction> => {
+export const addTransaction = async (provider: User, data: Omit<Transaction, 'id' | 'provider' | 'qrCodeId' | 'readyTimestamp' | 'deliveryRequested'>): Promise<Transaction> => {
     await delay(400);
     const newTransaction: Transaction = {
         ...data,
         id: `t${Date.now()}`,
         provider,
         qrCodeId: `QR${Date.now()}`,
+        deliveryRequested: false,
     };
+
+    if (newTransaction.status === 'Ready for Pickup') {
+        newTransaction.readyTimestamp = new Date().toISOString();
+    }
+
     mockTransactions.unshift(newTransaction);
     return newTransaction;
 }
 
-export const updateTransaction = async (jobId: string, data: Omit<Transaction, 'id' | 'provider' | 'client' | 'qrCodeId'>): Promise<Transaction> => {
+export const updateTransaction = async (jobId: string, data: Partial<Omit<Transaction, 'id' | 'provider' | 'client' | 'qrCodeId'>>): Promise<Transaction> => {
     await delay(400);
     const jobIndex = mockTransactions.findIndex(j => j.id === jobId);
     if(jobIndex === -1) throw new Error("Job not found");
-    mockTransactions[jobIndex] = { ...mockTransactions[jobIndex], ...data };
+    
+    const originalJob = mockTransactions[jobIndex];
+    const updatedJob = { ...originalJob, ...data };
+
+    if (data.status === 'Ready for Pickup' && originalJob?.status !== 'Ready for Pickup') {
+        updatedJob.readyTimestamp = new Date().toISOString();
+    }
+
+    mockTransactions[jobIndex] = updatedJob;
     return mockTransactions[jobIndex];
+}
+
+export const requestDeliveryForTransaction = async (jobId: string, address: string, phoneNumber: string): Promise<Transaction> => {
+    await delay(400);
+    const jobIndex = mockTransactions.findIndex(j => j.id === jobId);
+    if(jobIndex === -1) throw new Error("Job not found");
+
+    const updatedJob = {
+        ...mockTransactions[jobIndex],
+        deliveryRequested: true,
+        deliveryAddress: address,
+        deliveryPhoneNumber: phoneNumber,
+        estimatedDeliveryTime: `${Math.floor(Math.random() * 2) + 2}-${Math.floor(Math.random() * 3) + 4} hours`
+    };
+
+    mockTransactions[jobIndex] = updatedJob;
+    return updatedJob;
 }
 
 export const addCommentToPost = async (postId: string, author: User, text: string): Promise<ServicePost> => {

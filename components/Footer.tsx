@@ -12,7 +12,7 @@ interface NavItemProps {
 
 const Footer: React.FC = () => {
     const { currentPage, setCurrentPage, currentUser, openModal } = useAppContext();
-    const isProvider = currentUser?.role === 'provider';
+    const isProvider = currentUser?.activeRole === 'provider';
 
     const NavItem: React.FC<NavItemProps> = ({ page, iconName, label }) => {
         const isActive = currentPage === page;
@@ -51,7 +51,7 @@ const Footer: React.FC = () => {
                         <Icon name={isProvider ? "store" : "qr"} className="w-8 h-8" />
                     </button>
                 </div>
-                <NavItem page={Page.Transactions} iconName="chart" label="Jobs" />
+                <NavItem page={Page.Transactions} iconName="chart" label={isProvider ? 'Services' : 'Jobs'} />
                 <NavItem page={Page.Profile} iconName="user" label="Profile" />
             </nav>
         </footer>
